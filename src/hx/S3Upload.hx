@@ -5,6 +5,8 @@ class S3Upload extends flash.display.Sprite {
 	var _signatureURL : String;
 	var _prefix : String;
 	var _fr : flash.net.FileReference;
+	var _fl : flash.net.FileReferenceList;
+	var _frs: Hash<flash.net.FileReference>;
 	var _filters : Array<flash.net.FileFilter>;
 	
 	public function new() super()
@@ -14,6 +16,7 @@ class S3Upload extends flash.display.Sprite {
 		_signatureURL = stage.loaderInfo.parameters.signatureURL;
 		_prefix = stage.loaderInfo.parameters.prefix;
 		_filters = [];
+		_frs = new Hash();
 		if( stage.loaderInfo.parameters.filters != null && stage.loaderInfo.parameters.filters != "" ) {
 			for( filter in stage.loaderInfo.parameters.filters.split("|") ) {
 				var f = filter.split("#");
@@ -32,14 +35,19 @@ class S3Upload extends flash.display.Sprite {
 	}
 	
 	function onBrowse( e ) {
-		var fr = new flash.net.FileReference();
+		var fr = new flash.net.FileReferenceList();
 		fr.addEventListener( "cancel" , function(e) { call( e.type , [] ); } );
-		fr.addEventListener( "select" , function(e) { call( e.type , [fr.name,fr.size,extractType(fr)]); } );
+		fr.addEventListener( "select" , function(e) { 
+		    var foo = [];
+		    var bar;
+		    for (bar in fr.fileList){foo.push([bar.name,bar.size,extractType(bar)]);}
+		    call( e.type , foo); 
+		} );
 		if( _filters.length > 0 )
 			fr.browse( _filters );
 		else
 			fr.browse();
-		_fr = fr;
+		_fl = fr;
 	}
 	
 	function enable() {
@@ -80,26 +88,31 @@ class S3Upload extends flash.display.Sprite {
 	
 	function upload() {
 		// No browse has been called
-		if( _fr == null )
+		if( _fl == null )
 			return;
+		var my_fr;
+		for ( my_fr in _fl.fileList){
+            _fr = my_fr;
+            
+    		// Fetch a signature and other good things from the backend
+    		var vars 			= new flash.net.URLVariables();
+    		vars.fileName 		= _fr.name;
+    		vars.fileSize 		= _fr.size;
+    		vars.contentType	= extractType( _fr );
+    		vars.key 			= _prefix + _fr.name;
 		
-		// Fetch a signature and other good things from the backend
-		var vars 			= new flash.net.URLVariables();
-		vars.fileName 		= _fr.name;
-		vars.fileSize 		= _fr.size;
-		vars.contentType	= extractType( _fr );
-		vars.key 			= _prefix + _fr.name;
+    		var req 			= new flash.net.URLRequest(_signatureURL);
+    		_frs.set(vars.key, _fr);
+    		req.method			= flash.net.URLRequestMethod.GET;
+    		req.data			= vars;
 		
-		var req 			= new flash.net.URLRequest(_signatureURL);
-		req.method			= flash.net.URLRequestMethod.GET;
-		req.data			= vars;
-		
-		var load			= new flash.net.URLLoader();
-		load.dataFormat		= flash.net.URLLoaderDataFormat.TEXT;
-		load.addEventListener( "complete" , onSignatureComplete );
-		load.addEventListener( "securityError" , onSignatureError );
-		load.addEventListener( "ioError" , onSignatureError );
-		load.load( req );
+    		var load			= new flash.net.URLLoader();
+    		load.dataFormat		= flash.net.URLLoaderDataFormat.TEXT;
+    		load.addEventListener( "complete" , onSignatureComplete );
+    		load.addEventListener( "securityError" , onSignatureError );
+    		load.addEventListener( "ioError" , onSignatureError );
+    		load.load( req );
+		}
 	}
 	
 	static function extractType( fr : flash.net.FileReference ) {
@@ -142,13 +155,14 @@ class S3Upload extends flash.display.Sprite {
 			policy: sign.node.policy.innerData
 		};
 		
-		var fr = _fr;
+		
+		var my_fr = _frs.get(opts.key);
 		
 		var req				= new S3Request( opts );
 		req.onError 		= function(msg) { call( "error" , [msg] ); }
 		req.onProgress 		= function(p) { call( "progress" , [p] ); }
 		req.onComplete 		= function() { call( "complete" , [opts.key] ); }
-		req.upload( _fr );
+		req.upload( my_fr );
 		call( "start" , [] );
 	}
 	
