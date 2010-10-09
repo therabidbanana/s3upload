@@ -91,10 +91,11 @@ class S3Upload extends flash.display.Sprite {
 		if( _fl == null )
 			return;
 		var my_fr;
+		var i = 0;
 		_frs = new Hash();
 		for ( my_fr in _fl.fileList){
             _fr = my_fr;
-            
+            i++;
     		// Fetch a signature and other good things from the backend
     		var vars 			= new flash.net.URLVariables();
     		vars.fileName 		= my_fr.name;
@@ -104,8 +105,9 @@ class S3Upload extends flash.display.Sprite {
 			if(_frs.exists(vars.key)){
 				continue;
 			}
-    		var req 			= new flash.net.URLRequest(_signatureURL);
+			
     		_frs.set(vars.key, my_fr);
+    		var req 			= new flash.net.URLRequest(_signatureURL);
     		req.method			= flash.net.URLRequestMethod.GET;
     		req.data			= vars;
 		
@@ -114,7 +116,7 @@ class S3Upload extends flash.display.Sprite {
     		load.addEventListener( "complete" , onSignatureComplete );
     		load.addEventListener( "securityError" , onSignatureError );
     		load.addEventListener( "ioError" , onSignatureError );
-    		load.load( req );
+    		haxe.Timer.delay(function(){ load.load( req ); }, 100+(150*i));
 		}
 	}
 	
@@ -131,7 +133,7 @@ class S3Upload extends flash.display.Sprite {
 	}
 	
 	function onSignatureError(e) {
-		call( "error" , ["Could not get signature because: " + e.text] );
+		call( "trace" , ["Could not get signature because: " + e.text] );
 	}
 	
 	function onSignatureComplete(e) {
@@ -139,9 +141,9 @@ class S3Upload extends flash.display.Sprite {
 		
 		var load 			= cast( e.target , flash.net.URLLoader );
 		var sign			= new haxe.xml.Fast( Xml.parse( load.data ).firstElement() );
-		
+		call("trace", ["loaded sig : " + load.data]);
 		if( sign.has.error ) {
-			call( "error" , ["There was an error while making the signature: " + sign.node.error.innerData] );
+			call( "trace" , ["There was an error while making the signature: " + sign.node.error.innerData] );
 			return;
 		}
 		
