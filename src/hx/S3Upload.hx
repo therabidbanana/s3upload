@@ -35,19 +35,19 @@ class S3Upload extends flash.display.Sprite {
 	}
 	
 	function onBrowse( e ) {
-		var fr = new flash.net.FileReferenceList();
-		fr.addEventListener( "cancel" , function(e) { call( e.type , [] ); } );
-		fr.addEventListener( "select" , function(e) { 
+		var fl = new flash.net.FileReferenceList();
+		fl.addEventListener( "cancel" , function(e) { call( e.type , [] ); } );
+		fl.addEventListener( "select" , function(e) { 
 		    var foo = [];
 		    var bar;
-		    for (bar in fr.fileList){foo.push([bar.name,bar.size,extractType(bar)]);}
-		    call( e.type , foo); 
+		    for (bar in fl.fileList){foo.push([bar.name,bar.size,extractType(bar)]);}
+		    call( e.type , foo, true); 
 		} );
 		if( _filters.length > 0 )
-			fr.browse( _filters );
+			fl.browse( _filters );
 		else
-			fr.browse();
-		_fl = fr;
+			fl.browse();
+		_fl = fl;
 	}
 	
 	function enable() {
@@ -91,18 +91,21 @@ class S3Upload extends flash.display.Sprite {
 		if( _fl == null )
 			return;
 		var my_fr;
+		_frs = new Hash();
 		for ( my_fr in _fl.fileList){
             _fr = my_fr;
             
     		// Fetch a signature and other good things from the backend
     		var vars 			= new flash.net.URLVariables();
-    		vars.fileName 		= _fr.name;
-    		vars.fileSize 		= _fr.size;
-    		vars.contentType	= extractType( _fr );
-    		vars.key 			= _prefix + _fr.name;
-		
+    		vars.fileName 		= my_fr.name;
+    		vars.fileSize 		= my_fr.size;
+    		vars.contentType	= extractType( my_fr );
+    		vars.key 			= _prefix + my_fr.name;
+			if(_frs.exists(vars.key)){
+				continue;
+			}
     		var req 			= new flash.net.URLRequest(_signatureURL);
-    		_frs.set(vars.key, _fr);
+    		_frs.set(vars.key, my_fr);
     		req.method			= flash.net.URLRequestMethod.GET;
     		req.data			= vars;
 		
@@ -160,22 +163,38 @@ class S3Upload extends flash.display.Sprite {
 		
 		var req				= new S3Request( opts );
 		req.onError 		= function(msg) { call( "error" , [msg] ); }
-		req.onProgress 		= function(p) { call( "progress" , [p] ); }
+		req.onProgress 		= function(p, key) { call( "progress" , [p, key] ); }
 		req.onComplete 		= function() { call( "complete" , [opts.key] ); }
 		req.upload( my_fr );
 		call( "start" , [] );
 	}
 	
-	static function call( eventType , args : Array<Dynamic> = null ) {
+	static function call( eventType , args : Array<Dynamic> = null, array = false ) {
 		if( args == null ) 
 			args = [];
 		var method = "on"+eventType;
 		if( _id != null && flash.external.ExternalInterface.available ) {
-			var c = "function(){
-				var swf = document.getElementById('"+_id+"');
-				if( swf )
-					swf['"+method+"'].apply(swf,['"+args.join("','")+"']);
-			}()";
+			var c;
+			if(array){
+				var new_args = [];
+				var arg;
+				
+				for (arg in args){
+					new_args.push("['"+arg.join("','")+"']");
+				}
+				c = "function(){
+					var swf = document.getElementById('"+_id+"');
+					if( swf )
+						swf['"+method+"'].apply(swf,["+new_args.join(",")+"]);
+				}()";
+			}
+			else{
+				c = "function(){
+					var swf = document.getElementById('"+_id+"');
+					if( swf )
+						swf['"+method+"'].apply(swf,['"+args.join("','")+"']);
+				}()";
+			}
 			flash.external.ExternalInterface.call( c , [] );
 		}
 	}
@@ -218,7 +237,7 @@ class S3Request {
 	var _httpStatus : Bool;
 	
 	public var onComplete : Void -> Void;
-	public var onProgress : Float -> Void;
+	public var onProgress : Dynamic;
 	public var onError : String -> Void;
 	
 	public function new( opts : S3Options ) {
@@ -293,7 +312,7 @@ class S3Request {
 		if( isError( e.data ) )
 			onError( "Amazon S3 returned an error: " + e.data );
 		else {
-			onProgress( 1 );
+			onProgress( 1, _opts.key);
 			onComplete();
 		}
 	}
@@ -303,15 +322,15 @@ class S3Request {
 		if( e.status >= 200 && e.status < 300 )
 			onComplete();
 		else
-			onError( "Amazon S3 returned an error: " + e.status );
+			onError( "Amazon S3 returned an error: " + e.status + ' - ' + e.data );
 	}
 	
 	function onUploadOpen( e ) {
-		onProgress( 0 );
+		onProgress( 0, _opts.key );
 	}
 	
 	function onUploadProgress( e ) {
-		onProgress( e.bytesLoaded / e.bytesTotal );
+		onProgress( e.bytesLoaded / e.bytesTotal, _opts.key);
 	}
 	
 	function onUploadError( e ) {

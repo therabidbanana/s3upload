@@ -9,7 +9,8 @@
 			required: false,
 			submit_on_all_complete: true,
 			error_class: "s3_error",
-			file_types: []
+			file_types: [],
+			multi: false
 		};
 		if( settings ) $.extend( config , settings );
 
@@ -128,17 +129,43 @@
 							el.trigger(type);
 						}
 					}
-					swf.onselect = function(name,size,type) {
-						swf.info = {name: name, size: size, type: type};
-						var def = true;
-						if( $.isFunction( config.onselect ) )
-							def = config.onselect.call(el,swf.info);
-						if( def ) {
-							// Do default stuff: Replace the text of the div with the filename?
-							setValue(config.prefix + name);
+					swf.onselect = function(val) {
+						if(config.multi){
+							var args = Array.prototype.slice.call(arguments); 
+							var array = [];
+							var def = true;
+							$.each(args, function(i, val){
+								array.push( {name: val[0], size: val[1], type:val[2]});
+							});
+							console.log(array);
+							if( $.isFunction( config.onselect ) )
+								def = config.onselect.call(el,array);
+							if( def ) {
+								// Do default stuff: Replace the text of the div with the filename?
+								// setValue(config.prefix + name);
+							}
+							
+							$.each(array, function(i, val){
+								swf.info = {name: val.name, size: val.size, type: val.type};
+								form.data("s3_selected",(form.data("s3_selected")||0) + 1 );
+								form.submit(formSubmit);
+							})
 						}
-						form.data("s3_selected",(form.data("s3_selected")||0) + 1 );
-						form.submit(formSubmit);
+						else{
+							var def = true;
+							var vals = val.split(',')
+							val = {name: vals[0], size: vals[1], type:vals[2]};
+							if( $.isFunction( config.onselect ) )
+								def = config.onselect.call(el,val);
+							if( def ) {
+								// Do default stuff: Replace the text of the div with the filename?
+								setValue(config.prefix + name);
+							}
+
+							swf.info = {name: val.name, size: val.size, type: val.type};
+							form.data("s3_selected",(form.data("s3_selected")||0) + 1 );
+							form.submit(formSubmit);
+						}
 					}
 					swf.oncancel = function() {
 						var def = true;
