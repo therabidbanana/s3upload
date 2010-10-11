@@ -39,7 +39,6 @@ class S3Upload extends flash.display.Sprite {
 		fl.addEventListener( "cancel" , function(e) { call( e.type , [] ); } );
 		fl.addEventListener( "select" , function(e) { 
 		    var foo = [];
-		    var bar;
 		    for (bar in fl.fileList){foo.push([bar.name,bar.size,extractType(bar)]);}
 		    call( e.type , foo, true); 
 		} );

@@ -1,0 +1,19 @@
+%html
+  %head
+    %meta{:charset => "utf-8"}
+    %script{:src => "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"}
+    %script{:src => "/javascripts/jquery.s3upload.js"}
+    %script{:src => "/javascripts/test.js"}
+    %link(rel="stylesheet" href="/styles.css" type="text/css" media="screen" title="no title" charset="utf-8")
+    %script(type="text/javascript" charset="utf-8" src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js")
+  %body.dropboxer
+    :javascript
+      var s3_signature_url = "/s3upload";
+    .add_files
+      %form.new_files{}
+        %noscript You must enable javascript to upload files
+        - directory = ""
+        %input.folder{:type => "hidden", :value => directory}
+        .mr_new_element.s3_file_uploads
+          .add Click to add new Files
+        %input{:type => "submit", :value => "Upload"}

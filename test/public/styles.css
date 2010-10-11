@@ -1,0 +1,70 @@
+.directory{
+	margin-left: 0.5em;
+}
+
+.directory .add_files form.new_files{
+	margin: 1em 0.5em 0.2em;
+}
+
+
+.directory .files{
+	margin: 1em 0.5em;
+	padding: 0.4em;
+	border: 1px solid #ddf;
+}
+
+.directory .files .actions{
+	float: right;
+	font-size: 0.8em;
+}
+
+.s3_file_uploads, .mr_new_element{
+	min-height: 30px;
+	min-width: 80px;
+}
+
+.s3_file_uploads .file{
+	padding: 0.1em 0.3em;
+	margin: 0.1em;
+	border: 1px solid #ddd;
+}
+
+.s3_file_uploads .file{
+	font-size: 0.8em;
+	position:relative;
+	
+}
+
+.s3_file_uploads .file span.progress{
+	position: absolute;
+	width: 0%;
+	max-width: 99%;
+	height: 1.4em;
+	margin: 0.1em;
+	background-color: #ddf;
+	z-index: 1;
+}
+
+
+.s3_file_uploads .file span.file_name{
+	z-index: 2;
+	position: relative;
+	margin-left: 1em;
+}
+
+.s3_file_uploads .add{
+	margin: 0.2em;
+	background-color: #efe;
+	border: 0.2em dashed #ddd;
+	text-align: center;
+	padding: 1em;
+}
+
+.dropboxer .add_new_directory{
+	float: right;
+	padding: 1em;
+}
+
+.dropboxer .download{
+	
+}
