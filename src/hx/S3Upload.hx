@@ -3,6 +3,7 @@ class S3Upload extends flash.display.Sprite {
 	static var _id : String;
 	
 	var _signatureURL : String;
+	var interface_works : Bool = true;
 	var _prefix : String;
 	var _fr : flash.net.FileReference;
 	var _fl : flash.net.FileReferenceList;
@@ -16,7 +17,6 @@ class S3Upload extends flash.display.Sprite {
 		_signatureURL = stage.loaderInfo.parameters.signatureURL;
 		_prefix = stage.loaderInfo.parameters.prefix;
 		_filters = [];
-		_frs = new Hash();
 		if( stage.loaderInfo.parameters.filters != null && stage.loaderInfo.parameters.filters != "" ) {
 			for( filter in stage.loaderInfo.parameters.filters.split("|") ) {
 				var f = filter.split("#");
@@ -36,6 +36,7 @@ class S3Upload extends flash.display.Sprite {
 	
 	function onBrowse( e ) {
 		var fl = new flash.net.FileReferenceList();
+		_frs = new Hash<flash.net.FileReference>();
 		fl.addEventListener( "cancel" , function(e) { call( e.type , [] ); } );
 		fl.addEventListener( "select" , function(e) { 
 		    var foo = [];
