@@ -4,10 +4,10 @@ $(function(){
 
 
 	function apply_s3_upload(el){
-		var max_file_size = 500 * 1024 * 1024 ; // = 200Mb
+		var max_file_size = 200 * 1024 * 1024 ; // = 200Mb
 		$(el).each(function(e){
 			var form = $(this).hasClass('new_files') ? $(this) : $(this).closest('form.new_files');
-			$(this).s3upload({
+			$(this).s3_multiupload({
 				prefix: $('input.folder', form).val().replace(/^\//, ''),
 				path: '/s3upload.swf',
 				required: true,

@@ -3,7 +3,6 @@ class S3Upload extends flash.display.Sprite {
 	static var _id : String;
 	
 	var _signatureURL : String;
-	var interface_works : Bool = true;
 	var _prefix : String;
 	var _fr : flash.net.FileReference;
 	var _fl : flash.net.FileReferenceList;
