@@ -9,7 +9,7 @@ $(function(){
 			var form = $(this).hasClass('new_files') ? $(this) : $(this).closest('form.new_files');
 			$(this).s3_multiupload({
 				prefix: $('input.folder', form).val().replace(/^\//, ''),
-				path: '/s3upload.swf',
+				path: '/s3_multiupload.swf',
 				required: true,
 				multi: true,
 				element: '<div />',

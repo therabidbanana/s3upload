@@ -8,6 +8,8 @@ class S3MultiUpload extends flash.display.Sprite {
 	var _fl : flash.net.FileReferenceList;
 	var _frs: Hash<flash.net.FileReference>;
 	var _filters : Array<flash.net.FileFilter>;
+	var _uploader : S3UploadQueue;
+	var _queue_size : Int;
 	
 	public function new() super()
 	
@@ -16,6 +18,12 @@ class S3MultiUpload extends flash.display.Sprite {
 		_signatureURL = stage.loaderInfo.parameters.signatureURL;
 		_prefix = stage.loaderInfo.parameters.prefix;
 		_filters = [];
+		if( stage.loaderInfo.parameters.queue_size != null && stage.loaderInfo.parameters.queue_size != "" ) {
+			_queue_size = Std.parseInt(stage.loaderInfo.parameters.queue_size);
+		}
+		else{
+			_queue_size = 5;
+		}
 		if( stage.loaderInfo.parameters.filters != null && stage.loaderInfo.parameters.filters != "" ) {
 			for( filter in stage.loaderInfo.parameters.filters.split("|") ) {
 				var f = filter.split("#");
@@ -92,31 +100,30 @@ class S3MultiUpload extends flash.display.Sprite {
 		var my_fr;
 		var i = 0;
 		_frs = new Hash();
+		_uploader = new S3UploadQueue(this, _queue_size);
+		
 		for ( my_fr in _fl.fileList){
             _fr = my_fr;
             i++;
-    		// Fetch a signature and other good things from the backend
-    		var vars 			= new flash.net.URLVariables();
-    		vars.fileName 		= my_fr.name;
-    		vars.fileSize 		= my_fr.size;
-    		vars.contentType	= extractType( my_fr );
-    		vars.key 			= _prefix + my_fr.name;
+			// Fetch a signature and other good things from the backend
+			var vars 			= new flash.net.URLVariables();
+			vars.fileName 		= my_fr.name;
+			vars.fileSize 		= my_fr.size;
+			vars.contentType	= extractType( my_fr );
+			vars.key 			= _prefix + my_fr.name;
+			
 			if(_frs.exists(vars.key)){
 				continue;
 			}
 			
-    		_frs.set(vars.key, my_fr);
-    		var req 			= new flash.net.URLRequest(_signatureURL);
-    		req.method			= flash.net.URLRequestMethod.GET;
-    		req.data			= vars;
-		
-    		var load			= new flash.net.URLLoader();
-    		load.dataFormat		= flash.net.URLLoaderDataFormat.TEXT;
-    		load.addEventListener( "complete" , onSignatureComplete );
-    		load.addEventListener( "securityError" , onSignatureError );
-    		load.addEventListener( "ioError" , onSignatureError );
-    		haxe.Timer.delay(function(){ load.load( req ); }, 100+(150*i));
+			_frs.set(vars.key, my_fr);
+			var req 			= new flash.net.URLRequest(_signatureURL);
+			req.method			= flash.net.URLRequestMethod.GET;
+			req.data			= vars;
+			_uploader.queue(req);
+			
 		}
+		_uploader.start();
 	}
 	
 	static function extractType( fr : flash.net.FileReference ) {
@@ -131,46 +138,8 @@ class S3MultiUpload extends flash.display.Sprite {
 		return fr.type;
 	}
 	
-	function onSignatureError(e) {
-		call( "trace" , ["Could not get signature because: " + e.text] );
-	}
 	
-	function onSignatureComplete(e) {
-		// Now that we have the signature we can send the file to S3.
-		
-		var load 			= cast( e.target , flash.net.URLLoader );
-		var sign			= new haxe.xml.Fast( Xml.parse( load.data ).firstElement() );
-		call("trace", ["loaded sig : " + load.data]);
-		if( sign.has.error ) {
-			call( "trace" , ["There was an error while making the signature: " + sign.node.error.innerData] );
-			return;
-		}
-		
-		// Create an S3Options object from the signature xml
-		var opts 			= {
-			accessKeyId: sign.node.accessKeyId.innerData,
-			acl: sign.node.acl.innerData,
-			bucket: sign.node.bucket.innerData,
-			contentType: sign.node.contentType.innerData,
-			expires: sign.node.expires.innerData,
-			key: sign.node.key.innerData,
-			secure: sign.node.secure.innerData == "true",
-			signature: sign.node.signature.innerData,
-			policy: sign.node.policy.innerData
-		};
-		
-		
-		var my_fr = _frs.get(opts.key);
-		
-		var req				= new S3Request( opts );
-		req.onError 		= function(msg) { call( "error" , [msg] ); }
-		req.onProgress 		= function(p, key) { call( "progress" , [p, key] ); }
-		req.onComplete 		= function() { call( "complete" , [opts.key] ); }
-		req.upload( my_fr );
-		call( "start" , [] );
-	}
-	
-	static function call( eventType , args : Array<Dynamic> = null, array = false ) {
+	public static function call( eventType , args : Array<Dynamic> = null, array = false ) {
 		if( args == null ) 
 			args = [];
 		var method = "on"+eventType;
@@ -215,7 +184,9 @@ class S3MultiUpload extends flash.display.Sprite {
 		s.init();
 	}
 	
-	
+	public function files(){
+		return _frs;
+	}
 }
 
 typedef S3Options = {
@@ -230,20 +201,142 @@ typedef S3Options = {
 	var policy : String;
 }
 
+class S3UploadQueue {
+	var _requests : Array<S3Request>;
+	var _signature_requests : Array<flash.net.URLRequest>;
+	var _request_timer : haxe.Timer;
+	var _sigloader : flash.net.URLLoader;
+	var _parent : S3MultiUpload;
+	public var max_requests : Int;
+	public var request_count : Int;
+	
+	public function new(parent, max_r = 5) {
+		_parent = parent;
+		_signature_requests = new Array<flash.net.URLRequest>();
+		_requests = new Array<S3Request>();
+		request_count = 0;
+		max_requests = max_r;
+		_sigloader = new flash.net.URLLoader();
+		_sigloader.dataFormat = flash.net.URLLoaderDataFormat.TEXT;
+		_sigloader.addEventListener( "complete" , onSignatureComplete );
+		_sigloader.addEventListener( "securityError" , onSignatureError );
+		_sigloader.addEventListener( "ioError" , onSignatureError );
+	}
+	
+	public function start(){
+		_request_timer = new haxe.Timer(100);
+		_request_timer.run = dequeue;
+	}
+	
+	public function queue(new_request : flash.net.URLRequest) {
+		
+		_signature_requests.push(new_request);
+	}
+	
+	public function dequeue() {
+		if(request_count < max_requests){
+			if( _requests.length > 0 ){
+				next_upload();
+			}
+			else if( _signature_requests.length > 0 ){
+				next_sig();
+			}
+		}
+		if( _requests.length == 0 && _signature_requests.length == 0 && request_count == 0){
+			_request_timer.stop();
+			_request_timer = null;
+		}
+	}
+	
+	function next_sig(){
+		if( _signature_requests.length > 0 ){
+			var req = _signature_requests.shift();
+			increment();
+			_sigloader.load( req );
+		}
+	}
+	
+	function next_upload(){
+		if( _requests.length > 0 ){
+			var req = _requests.shift();
+			increment();
+			req.upload( );
+			S3MultiUpload.call( "start" , [] );
+		}
+	}
+	
+	
+	function onSignatureError(e) {
+		S3MultiUpload.call( "trace" , ["Could not get signature because: " + e.text] );
+		decrement();
+	}
+	
+	function onSignatureComplete(e) {
+		// Now that we have the signature we can send the file to S3.
+		
+		decrement();
+		var load 			= cast( e.target , flash.net.URLLoader );
+		var sign			= new haxe.xml.Fast( Xml.parse( load.data ).firstElement() );
+		S3MultiUpload.call("trace", ["loaded sig : " + load.data]);
+		if( sign.has.error ) {
+			S3MultiUpload.call( "trace" , ["There was an error while making the signature: " + sign.node.error.innerData] );
+			return;
+		}
+		
+		// Create an S3Options object from the signature xml
+		var opts 			= {
+			accessKeyId: sign.node.accessKeyId.innerData,
+			acl: sign.node.acl.innerData,
+			bucket: sign.node.bucket.innerData,
+			contentType: sign.node.contentType.innerData,
+			expires: sign.node.expires.innerData,
+			key: sign.node.key.innerData,
+			secure: sign.node.secure.innerData == "true",
+			signature: sign.node.signature.innerData,
+			policy: sign.node.policy.innerData
+		};
+		
+		
+		var my_fr = _parent.files().get(opts.key);
+		
+		var req				= new S3Request( opts, this );
+		req.onError 		= function(msg) { S3MultiUpload.call( "error" , [msg] ); }
+		req.onProgress 		= function(p, key) { S3MultiUpload.call( "progress" , [p, key] ); }
+		req.onComplete 		= function() { S3MultiUpload.call( "complete" , [opts.key] ); }
+		req.file = my_fr;
+		
+		_requests.push(req);
+	}
+	
+	public function increment(){
+		request_count++;
+	}
+	
+	public function decrement(){
+		request_count--;
+		if(request_count < 0){
+			request_count = 0;
+		}
+	}
+}
+
 class S3Request {
 	
 	static inline var AMAZON_BASE_URL = "s3.amazonaws.com";
 	
 	var _opts : S3Options;
 	var _httpStatus : Bool;
+	var _queue : S3UploadQueue;
 	
 	public var onComplete : Void -> Void;
 	public var onProgress : Dynamic;
 	public var onError : String -> Void;
+	public var file : flash.net.FileReference;
 	
-	public function new( opts : S3Options ) {
+	public function new( opts : S3Options , queue : S3UploadQueue) {
 		_opts = opts;
 		_httpStatus = false;
+		_queue = queue;
 	}
 	
 	function getUrl() {
@@ -291,7 +384,8 @@ class S3Request {
 		return true;
 	}
 	
-	public function upload( fr : flash.net.FileReference ) {
+	public function upload() {
+		
 		var url = getUrl();
         flash.system.Security.loadPolicyFile(url + "/crossdomain.xml");
 		
@@ -299,14 +393,14 @@ class S3Request {
         req.method = flash.net.URLRequestMethod.POST;
         req.data = getVars();            
         
-		fr.addEventListener( "uploadCompleteData" , onUploadComplete );
-		fr.addEventListener( "securityError" , onUploadError );
-		fr.addEventListener( "ioError" , onUploadError );
-        fr.addEventListener( "progress" , onUploadProgress);
-        fr.addEventListener( "open" , onUploadOpen);
-        fr.addEventListener( "httpStatus", onUploadHttpStatus);
+		file.addEventListener( "uploadCompleteData" , onUploadComplete );
+		file.addEventListener( "securityError" , onUploadError );
+		file.addEventListener( "ioError" , onUploadError );
+        file.addEventListener( "progress" , onUploadProgress);
+        file.addEventListener( "open" , onUploadOpen);
+        file.addEventListener( "httpStatus", onUploadHttpStatus);
 
-        fr.upload(req, "file", false);
+        file.upload(req, "file", false);
 	}
 	
 	function onUploadComplete( e ) {
@@ -316,10 +410,12 @@ class S3Request {
 			onProgress( 1, _opts.key);
 			onComplete();
 		}
+		_queue.decrement();
 	}
 	
 	function onUploadHttpStatus( e ) {
 		_httpStatus = true;
+		_queue.decrement();
 		if( e.status >= 200 && e.status < 300 )
 			onComplete();
 		else
@@ -335,8 +431,10 @@ class S3Request {
 	}
 	
 	function onUploadError( e ) {
-		if( !_httpStatus ) // ignore io errors if we already had a valid http status
+		if( !_httpStatus ){// ignore io errors if we already had a valid http status
 			onError( "Amazon S3 returned an error: " + e.message );
+			_queue.decrement();
+		}
 	}
 	
 	function isError(responseText:String):Bool {

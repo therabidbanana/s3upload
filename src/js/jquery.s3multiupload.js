@@ -4,9 +4,9 @@
 			text: null, // Defaults to the previous value of content of the element
 			path: "/s3_multiupload.swf",
 			prefix: "",
-			element: "<input type='text' />",
+			element: '<div />',
 			signature_url: "/s3upload",
-			required: false,
+			required: true,
 			submit_on_all_complete: true,
 			error_class: "s3_error",
 			file_types: [],
