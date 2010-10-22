@@ -1,5 +1,5 @@
 -cp hx
--main S3Upload
--swf ../bin/s3upload.swf
+-main S3MultiUpload
+-swf ../bin/s3_multiupload.swf
 -swf-version 9
 #-debug

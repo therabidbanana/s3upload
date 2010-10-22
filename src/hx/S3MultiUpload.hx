@@ -1,4 +1,4 @@
-class S3Upload extends flash.display.Sprite {
+class S3MultiUpload extends flash.display.Sprite {
 	
 	static var _id : String;
 	
@@ -210,7 +210,7 @@ class S3Upload extends flash.display.Sprite {
 		flash.Lib.current.stage.align = flash.display.StageAlign.TOP_LEFT;
 		flash.Lib.current.stage.scaleMode = flash.display.StageScaleMode.NO_SCALE;
 		
-		var s = new S3Upload();
+		var s = new S3MultiUpload();
 		flash.Lib.current.addChild( s );
 		s.init();
 	}
