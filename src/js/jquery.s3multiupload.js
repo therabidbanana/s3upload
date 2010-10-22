@@ -10,7 +10,8 @@
 			submit_on_all_complete: true,
 			error_class: "s3_error",
 			file_types: [],
-			multi: true
+			multi: true,
+			queue_size: 3
 		};
 		if( settings ) $.extend( config , settings );
 
@@ -74,7 +75,8 @@
 				id: "flash_"+id,
 				prefix: config.prefix,
 				signatureURL: config.signature_url,
-				filters: filters
+				filters: filters,
+				queue_size: config.queue_size
 			};
 			
 			var params = { wmode: "transparent" , menu: false };

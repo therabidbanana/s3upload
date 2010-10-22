@@ -1,15 +1,16 @@
-S3Upload
+S3MultiUpload
 ========
 
-A jQuery plugin for direct upload to an Amazon S3 bucket. 
+A jQuery plugin for direct upload to an Amazon S3 bucket. Modified from http://github.com/slaskis/s3upload to allow multiple
+files to be simultaneously uploaded.
 
-It works by replacing a file input with a html element overlaid with a transparent SWF. The same way [Flickr](http://www.flickr.com/photos/upload/) does it. 
+It works by replacing any element with a div overlaid with a transparent SWF. The same way [Flickr](http://www.flickr.com/photos/upload/) does it. 
 
-By signing the request server side we also avoid the security issue of showing the Amazon AWS Access Id Key and Secure Key in plain text. A library for signing the request in Ruby is included, but the logic should be very easy to replicate in other languages like PHP or Python.
+By signing the request server side we also avoid the security issue of showing the Amazon AWS Access Id Key and Secure Key in plain text. A library for signing the request in Ruby is available in the S3Upload project : http://github.com/slaskis/s3upload
 
 The Javascript API also allows these callback functions: 
 
-* onselect(info) 	- Called when a user has selected a file.
+* onselect(infoarray) 	- Called when a user has selected one or more files.
 * oncancel(info) 	- Called if the user decides to abort the file browsing.
 * onstart(info) 	- Called after the request has been signed and the file upload to S3 is starting.
 * onprogress(progress,info) - Called while uploading, "progress" being a float between 0 and 1 of the current upload progress.
@@ -19,6 +20,7 @@ The Javascript API also allows these callback functions:
 * ondisabled()		- Called when the SWF has been disabled. Usually when swf.disable() has been called.
 
 _info_ is an object containing "name", "size" and "type" of the selected file.
+_infoarray_ is an array of _info_ objects.
 
 And these mouse callbacks:
 
@@ -55,12 +57,12 @@ The HTML/JS part:
 
 	<script type="text/javascript" charset="utf-8" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"></script>
 	<script type="text/javascript" charset="utf-8" src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js"></script>
-	<script type="text/javascript" charset="utf-8" src="jquery.s3upload.js"></script>
+	<script type="text/javascript" charset="utf-8" src="jquery.s3multiupload.js"></script>
 	
 	<script type="text/javascript" charset="utf-8">
 		$(function(){
 			var max_file_size = 2 * 1024 * 1024; // = 2Mb
-			$("form").s3upload({
+			$("form").s3_multiupload({
 				prefix: "s3upload/",
 				required: true,
 				onselect: function(info) {
