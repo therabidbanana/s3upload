@@ -4,11 +4,11 @@ S3MultiUpload
 A jQuery plugin for direct upload to an Amazon S3 bucket. Modified from http://github.com/slaskis/s3upload to allow multiple
 files to be simultaneously uploaded.
 
-It works by replacing any element with a div overlaid with a transparent SWF. The same way [Flickr](http://www.flickr.com/photos/upload/) does it. 
+It works by replacing any element with a div overlaid with a transparent SWF. The same way [Flickr](http://www.flickr.com/photos/upload/) does it.
 
 By signing the request server side we also avoid the security issue of showing the Amazon AWS Access Id Key and Secure Key in plain text. A library for signing the request in Ruby is available in the S3Upload project : http://github.com/slaskis/s3upload
 
-The Javascript API also allows these callback functions: 
+The Javascript API also allows these callback functions:
 
 * onselect(infoarray) 	- Called when a user has selected one or more files.
 * oncancel(info) 	- Called if the user decides to abort the file browsing.
@@ -58,7 +58,7 @@ The HTML/JS part:
 	<script type="text/javascript" charset="utf-8" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"></script>
 	<script type="text/javascript" charset="utf-8" src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js"></script>
 	<script type="text/javascript" charset="utf-8" src="jquery.s3multiupload.js"></script>
-	
+
 	<script type="text/javascript" charset="utf-8">
 		$(function(){
 			var max_file_size = 2 * 1024 * 1024; // = 2Mb
@@ -70,9 +70,9 @@ The HTML/JS part:
 						return true; // Default is to show the filename in the element.
 					else
 						$(this).html("Too big file! Must be smaller than " + max_file_size + " (was "+info.size+")");
-				},	
-				file_types: [ 
-					[ "Images" , "*.png;*.jpg;*.bmp"], 
+				},
+				file_types: [
+					[ "Images" , "*.png;*.jpg;*.bmp"],
 					[ "Documents" , "*.pdf;*.doc;*.txt"]
 				]
 			});
@@ -88,12 +88,14 @@ The HTML/JS part:
 		<input type="file" name="media[thumbnail]" value="" id="media_thumbnail" />
 		<input type="submit" value="Upload" />
 	</form>
-	
-	
+
+
 The Sinatra part (assumes the _s3upload_ gem is installed):
 
 	require "s3upload"
 	get "/s3upload" do
 	  up = S3::Upload.new( options.s3_upload_access_key_id , options.s3_upload_secret_key , options.s3_upload_bucket )
-	  up.to_xml( params[:key] , params[:contentType] )
+    # Monkey patch allowing a different 'filename' is in the swf,
+    # but relies on changing the returned xml from the s3upload gem
+	  up.to_xml( params[:key] , params[:contentType] ).gsub('</s3>', "<filename>#{params[:key]}</filename></s3>")
 	end
