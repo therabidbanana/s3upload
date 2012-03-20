@@ -197,6 +197,7 @@ typedef S3Options = {
 	var expires : String;
 	var key : String;
 	var filename : String;
+	var data : String;
 	var secure : Bool;
 	var signature : String;
 	var policy : String;
@@ -295,18 +296,17 @@ class S3UploadQueue {
 			filename: sign.node.filename.innerData,
 			secure: sign.node.secure.innerData == "true",
 			signature: sign.node.signature.innerData,
-			policy: sign.node.policy.innerData
+			policy: sign.node.policy.innerData,
+      data: sign.node.data.innerData
 		};
 
 
 		var my_fr = _parent.files().get(opts.filename);
-		S3MultiUpload.call( "trace" , ["My file should be called" + opts.filename] );
-
 
 		var req				= new S3Request( opts, this );
-		req.onError 		= function(msg) { S3MultiUpload.call( "error" , [msg] ); }
+		req.onError 		= function(msg) { S3MultiUpload.call( "error" , [msg, opts.filename, opts.data] ); }
 		req.onProgress 		= function(p, key) { S3MultiUpload.call( "progress" , [p, key] ); }
-		req.onComplete 		= function() { S3MultiUpload.call( "complete" , [opts.filename] ); }
+		req.onComplete 		= function() { S3MultiUpload.call( "complete" , [opts.filename, opts.key, opts.data] ); }
 		req.file = my_fr;
 
 		_requests.push(req);
